@@ -9,5 +9,5 @@ export default async function Page(){
  const {data:allowed,error:membershipError}=await client.rpc('vocab_is_member');
  if(membershipError)return <main className="auth-shell"><h1>資料庫尚未準備好</h1><p>請確認已套用 vocabulary 的資料庫遷移。你的輸入不會送到未設定的資料庫。</p><a href="/">重新載入</a></main>;
  if(!allowed)redirect('/login?reason=not_allowed');
- return <VocabularyApp userKey={user.id}/>;
+ return <VocabularyApp key={user.id} userKey={user.id}/>;
 }

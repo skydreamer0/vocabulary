@@ -258,8 +258,61 @@ describe('revision-safe edit, archive and dictionary enrichment', { concurrency:
     assert.equal(enriched.lookup_status, 'found');
     assert.equal(enriched.dictionary[0].definition, 'A river edge.');
     const unavailable = await call('vocab_enrich_word', [enriched.id, enriched.term, '[]', '', 'unavailable']);
-    assert.equal(unavailable.lookup_status, 'unavailable');
-    assert.equal(unavailable.definition, 'Personal mnemonic');
+    assert.deepEqual(unavailable, enriched);
+    assert.deepEqual(await wordFromDB(word.id), enriched);
+  });
+
+  it('preserves a successful dictionary and phonetic against later failed or empty lookups', async () => {
+    const enriched = await enrich(await importOne());
+    const otherMeaning = [{ definition: 'An incomplete response.', partOfSpeech: 'noun', example: '' }];
+    for (const [status, dictionary] of [
+      ['unavailable', []], ['not_found', []], ['found', []],
+      ['unavailable', otherMeaning], ['not_found', otherMeaning],
+    ]) {
+      const result = await call('vocab_enrich_word', [enriched.id, enriched.term, json(dictionary), '/stale/', status]);
+      assert.deepEqual(result, enriched, `${status} with ${dictionary.length} meanings must return the retained result`);
+      assert.deepEqual(await wordFromDB(enriched.id), enriched);
+    }
+    const { rows: [{ attempts }] } = await db.query("select sum(count)::integer as attempts from vocab_private.rate_limits where user_id=$1 and action='enrich'", [USERS.alice]);
+    assert.equal(attempts, 6, 'retaining a successful result must not bypass the enrichment rate limit');
+  });
+
+  it('still records unsuccessful lookups before success and accepts subsequent successful refreshes', async () => {
+    const word = await importOne();
+    for (const status of ['unavailable', 'not_found', 'found']) {
+      const result = await call('vocab_enrich_word', [word.id, word.term, '[]', '', status]);
+      assert.equal(result.lookup_status, status);
+      assert.deepEqual(result.dictionary, []);
+      assert.equal(result.revision, word.revision);
+    }
+    const enriched = await enrich(word);
+    const replacement = [{ definition: 'A place that holds money.', partOfSpeech: 'noun', example: 'She went to the bank.' }];
+    const refreshed = await call('vocab_enrich_word', [word.id, word.term, json(replacement), '/bæŋk-new/', 'found']);
+    assert.deepEqual(refreshed.dictionary, replacement);
+    assert.equal(refreshed.phonetic, '/bæŋk-new/');
+    assert.equal(refreshed.lookup_status, 'found');
+    for (const key of Object.keys(enriched).filter(key => !['dictionary', 'phonetic', 'lookup_status'].includes(key))) {
+      assert.deepEqual(refreshed[key], enriched[key], key);
+    }
+    assert.deepEqual(await wordFromDB(word.id), refreshed);
+  });
+
+  it('retaining successful enrichment still enforces ownership, membership, validation, rename and archive guards', async () => {
+    const enriched = await enrich(await importOne());
+    const failedArgs = [enriched.id, enriched.term, '[]', '', 'unavailable'];
+    await rejectsCode(call('vocab_enrich_word', failedArgs, USERS.bob), 'PT404');
+    await rejectsCode(call('vocab_enrich_word', failedArgs, USERS.outsider), 'PT403');
+    await rejectsCode(call('vocab_enrich_word', failedArgs, null), 'PT401');
+    await rejectsCode(call('vocab_enrich_word', [enriched.id, enriched.term, '[{}]', '', 'unavailable']), 'PT400');
+    assert.deepEqual(await wordFromDB(enriched.id), enriched);
+
+    const renamed = await edit(enriched, { term: 'shore' });
+    await rejectsCode(call('vocab_enrich_word', failedArgs), 'PT409');
+    assert.deepEqual(await wordFromDB(enriched.id), renamed);
+    const reEnriched = await enrich(renamed);
+    const archived = await edit(reEnriched, { archived: true });
+    await rejectsCode(call('vocab_enrich_word', [archived.id, archived.term, '[]', '', 'not_found']), 'PT409');
+    assert.deepEqual(await wordFromDB(enriched.id), archived);
   });
 
   it('rejects SQL/JSON NULL, malformed meanings, and dictionary/phonetic/packet bounds', async () => {
@@ -438,6 +491,57 @@ async function overlapping(firstOperation, secondOperation, verify) {
 
 const nativeOnly = { skip: process.env.TEST_DATABASE_URL ? false : 'Requires TEST_DATABASE_URL and independent native PostgreSQL connections; PGlite cannot verify concurrency' };
 describe('native PostgreSQL concurrency', { concurrency: false }, () => {
+  for (const status of ['unavailable', 'not_found', 'found']) {
+    it(`a blocked ${status} empty lookup cannot erase a concurrently committed successful enrichment`, nativeOnly, async () => {
+      const word = await edit(await importOne(), { definition: 'Personal mnemonic' });
+      const reviewed = (await review(word)).word;
+      const dictionary = [{ definition: 'A river edge.', partOfSpeech: 'noun', example: 'We sat on the bank.' }];
+      await overlapping(
+        client => rpc(client, 'vocab_enrich_word', [word.id, word.term, json(dictionary), '/bæŋk/', 'found']),
+        client => rpc(client, 'vocab_enrich_word', [word.id, word.term, '[]', '/stale/', status]),
+        async (first, second) => {
+          assert.ifError(second.error);
+          assert.deepEqual(second.value, first);
+          assert.deepEqual(await wordFromDB(word.id), first);
+          for (const key of ['definition', 'revision', 'due_at', 'interval_days', 'streak']) assert.equal(first[key], reviewed[key], key);
+        },
+      );
+      assert.equal(await count('public.vocab_reviews'), 1);
+    });
+  }
+
+  it('a successful enrichment blocked behind an unsuccessful lookup still replaces the failure', nativeOnly, async () => {
+    const word = await importOne();
+    const dictionary = [{ definition: 'A river edge.', partOfSpeech: 'noun', example: '' }];
+    await overlapping(
+      client => rpc(client, 'vocab_enrich_word', [word.id, word.term, '[]', '', 'unavailable']),
+      client => rpc(client, 'vocab_enrich_word', [word.id, word.term, json(dictionary), '/bæŋk/', 'found']),
+      async (first, second) => {
+        assert.ifError(second.error);
+        assert.equal(first.lookup_status, 'unavailable');
+        assert.equal(second.value.lookup_status, 'found');
+        assert.deepEqual(second.value.dictionary, dictionary);
+        assert.equal(second.value.phonetic, '/bæŋk/');
+        assert.equal(second.value.revision, word.revision);
+        assert.deepEqual(await wordFromDB(word.id), second.value);
+      },
+    );
+  });
+
+  it('a blocked failed enrichment still rejects a concurrent archive of an already enriched card', nativeOnly, async () => {
+    const word = await enrich(await importOne());
+    await overlapping(
+      client => rpc(client, 'vocab_edit_word', [word.id, word.revision, word.term, word.context, word.sense, word.definition, true]),
+      client => rpc(client, 'vocab_enrich_word', [word.id, word.term, '[]', '', 'unavailable']),
+      async (first, second) => {
+        assert.equal(second.error?.code, 'PT409');
+        assert(first.archived_at);
+        assert.deepEqual(first.dictionary, word.dictionary);
+        assert.deepEqual(await wordFromDB(word.id), first);
+      },
+    );
+  });
+
   it('same review key and payload commits once and the blocked retry returns that history', nativeOnly, async () => {
     const word = await importOne();
     const args = [word.id, 0, randomUUID(), 'good', 'UTC'];

@@ -13,11 +13,13 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "next typegen && tsc --noEmit",
     "test:api": "npm run test:db",
-    "test": "node --test tests/auth-flow.test.mjs tests/supabase.test.mjs",
+    "test": "node --test tests/auth-flow.test.mjs tests/localization.test.mjs tests/enrichment-queue.test.mjs tests/dictionary.test.mjs tests/http-response.test.mjs tests/supabase.test.mjs",
     "test:db": "node --test tests/supabase.test.mjs",
     "db:generate:legacy": "drizzle-kit generate",
     "test:smoke": "node tests/runtime-smoke.mjs",
-    "test:auth": "node --test tests/auth-flow.test.mjs"
+    "test:auth": "node --test tests/auth-flow.test.mjs",
+    "test:locale": "node --test tests/localization.test.mjs",
+    "test:enrichment": "node --test tests/enrichment-queue.test.mjs tests/dictionary.test.mjs tests/http-response.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

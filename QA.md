@@ -24,3 +24,14 @@ The database suite bootstraps disposable Supabase-style roles and `auth.uid()` f
 The cloud development browser blocked the loopback preview with `net::ERR_BLOCKED_BY_CLIENT`. That restriction was not bypassed. Build and SQL tests are not a substitute for real-browser acceptance testing.
 
 No production Supabase database or Vercel website has been provisioned by this code change. Do not label a source-only prerelease “deployed” or “production-ready.”
+
+## Source-only lookup recovery verification (2026-10-02)
+
+- Latest local aggregate: 67 passed, 13 native PostgreSQL concurrency tests skipped; typecheck, Next.js production build and actual HTTP smoke passed
+- Includes 29 deterministic queue/provider/HTTP tests: interruption/reopen, 100-card rate budget, offline/reconnect, five-attempt backoff, app/provider 429, persisted queue cooldown, in-flight deduplication, rename/archive races, cached success and corrupt metadata
+- A disposable PostgreSQL-compatible local engine verifies the new atomic successful-enrichment preservation migration; independent multi-connection tests are present but still require native CI
+- Provider parser distinguishes network/timeout/HTTP/redirect/schema/size failures; these tests use controlled responses, not a claim of live provider availability
+- Original source tests and owner isolation remain covered; authentication lifetime and review scheduling are unchanged
+- The user approved replacing the unmatched live application with this reviewed version. Deployment is still unverified: authorized Vercel/Supabase target access and compatibility checks are required before applying migrations or claiming live acceptance
+- Independent live review confirmed three test words saved and survived reload while automatic definitions failed; this isolates the failure stage, not its server/provider root cause
+- Frontend retry timing is device-local and not atomic across tabs/devices; SQL is the authoritative per-user rate limiter

@@ -22,7 +22,7 @@ export async function body(request:Request){
  const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length}
  try{const parsed=JSON.parse(new TextDecoder().decode(bytes));if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error();return parsed}catch{throw new ApiError(400,'Invalid JSON')}
 }
-export function str(v:unknown,max:number,required=false){if(typeof v!=='string'||v.length>max)throw new ApiError(400,'文字長度或格式不正確');const s=v.normalize('NFKC').trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'');if(required&&!s)throw new ApiError(400,'請輸入單字或短語');return s}
+export function str(v:unknown,max:number,required=false){if(typeof v!=='string'||v.length>max)throw new ApiError(400,'文字長度或格式不正確');const s=v.normalize('NFKC').trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,'');if(required&&!s)throw new ApiError(400,'請輸入單字或片語');return s}
 export function id(v:unknown){const s=str(v,36,true);if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s))throw new ApiError(400,'Invalid identifier');return s}
 export function revision(v:unknown){if(!Number.isSafeInteger(v)||Number(v)<0||Number(v)>2147483647)throw new ApiError(400,'Invalid revision');return Number(v)}
 export function dbError(error:{code?:string;message?:string}|null){if(!error)return;const code=error.code||'';if(/^PT(400|401|403|404|409|429)$/.test(code))throw new ApiError(Number(code.slice(2)),error.message||'Request rejected');if(code==='23505')throw new ApiError(409,'相同資料已存在');console.error('Supabase request failed',code);throw new ApiError(503,'暫時無法連接資料庫，輸入仍保留。請稍後重試。')}

@@ -89,6 +89,8 @@ A connected plugin alone does not prove access to a particular Vercel team or Su
 ```sh
 npm run typecheck
 npm run test:auth
+npm run test:locale
+npm run test:enrichment
 npm run test:db
 npm run build
 npm run test:smoke
@@ -130,3 +132,11 @@ Installation and speech depend on browser/OS support. The offline screen is not 
 - [Next.js on Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs)
 
 The hardening migration revokes the migration owner's global default function execution grants, because PostgreSQL schema-scoped revokes cannot remove a global default. This is another reason these migrations belong only in the dedicated vocabulary project.
+
+## Lookup recovery / 自動查詢續接
+
+Pending or temporarily unavailable definitions resume when the app is opened online. Each queue allows at most 40 requests/minute with five bounded attempts and increasing delays; the database remains the authoritative 80/minute per-user limit across tabs. Retry timing and the last selected tab are device-local and user-keyed. Concurrent tabs do not have an atomic shared browser queue. A 429 pause survives a normal reopen. Real not-found results are not retried forever.
+
+Completed definitions remain in PostgreSQL and are reused without calling the provider again. A late failed response cannot erase a successful same-term definition after the preservation migration is applied. Provider failures are categorized without logging the user's term or sentence. This does not guarantee that the free provider is reachable, and lookup work is resumed on reopen rather than completed by a background job while the browser is closed.
+
+Stored words and completed reviews persist. The last tab and capture draft are restored; an unfinished review queue is not yet resumable. Login lifetime and review scheduling are unchanged. Browser-storage failures show a warning instead of silently promising local persistence.

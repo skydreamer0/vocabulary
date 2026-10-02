@@ -32,6 +32,8 @@ jobs:
       - run: npm run install:ci
       - run: npm run typecheck
       - run: npm run test:auth
+      - run: npm run test:locale
+      - run: npm run test:enrichment
       - run: npm run test:db
       - run: npm run build
       - run: npm run test:smoke
