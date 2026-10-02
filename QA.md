@@ -1,11 +1,37 @@
-# QA record
+# Supabase/Vercel migration QA
 
-Passed: TypeScript check; production build; actual compiled Worker/D1 integration tests for missing identity, cross-user isolation, cross-origin rejection, duplicate normalization, separate senses, 100-word import, concurrent same-key review, payload-bound retries, competing stale revisions, archive preservation, malformed inputs/timezones, fixed-endpoint dictionary parsing and 404/redirect/malformed/oversized failures, authenticated server rendering.
+## Current checks
 
-An independent read-only review found client save/refresh/session races; the fixes were rechecked. Source/staged drafts persist locally, due cards recompute on time/focus, newer revisions are retained, and import/review navigation is guarded while saving.
+- TypeScript: passed locally
+- Standard Next.js production build: passed locally
+- PGlite PostgreSQL contract: 23 passed locally, 8 native-only cases skipped locally
+- Native PostgreSQL 17: all 31 database tests passed in GitHub CI, including the 8 concurrency cases
+- Authentication failure-path regressions: 9 passed locally
+- Actual Next.js HTTP smoke: setup-required redirect, fail-closed APIs and PWA asset headers passed
+- CI repeats native PostgreSQL, auth regression, type, build and runtime-smoke checks for each commit; PGlite alone is not evidence of concurrency safety
 
-Not yet verified: actual desktop/narrow browser screenshots and interactive keyboard/cancel/back-forward/double-click flows; install/offline/speech behavior in a real browser; production auth/D1/cross-device sessions; live dictionary availability; WebMCP in a supported browser.
+The database suite bootstraps disposable Supabase-style roles and `auth.uid()` fixtures, then applies the actual application migrations. It tests PostgreSQL behavior, not a mock implementation of the application SQL.
 
-The development browser rejected the loopback preview with net::ERR_BLOCKED_BY_CLIENT. No alternate network route was used to bypass that restriction. Build and backend tests do not replace browser acceptance testing.
+## Scope to verify before production
 
-No production deployment was performed. CI, if enabled, runs build/type/backend checks only and does not deploy.
+- Real Supabase GoTrue/JWT/cookie refresh and magic-link email delivery
+- Exact production membership and RLS advisor checks on the dedicated project
+- Real Vercel project build, environment variables and callback URLs
+- Desktop and narrow/mobile UI screenshots and keyboard/cancel/back-forward/repeated-click flows
+- PWA installation, offline transition and browser speech
+- Live dictionary service availability and WebMCP in a supported browser
+
+The cloud development browser blocked the loopback preview with `net::ERR_BLOCKED_BY_CLIENT`. That restriction was not bypassed. Build and SQL tests are not a substitute for real-browser acceptance testing.
+
+No production Supabase database or Vercel website has been provisioned by this code change. Do not label a source-only prerelease “deployed” or “production-ready.”
+
+## Source-only lookup recovery verification (2026-10-02)
+
+- Latest local aggregate: 67 passed, 13 native PostgreSQL concurrency tests skipped; typecheck, Next.js production build and actual HTTP smoke passed
+- Includes 29 deterministic queue/provider/HTTP tests: interruption/reopen, 100-card rate budget, offline/reconnect, five-attempt backoff, app/provider 429, persisted queue cooldown, in-flight deduplication, rename/archive races, cached success and corrupt metadata
+- A disposable PostgreSQL-compatible local engine verifies the new atomic successful-enrichment preservation migration; independent multi-connection tests are present but still require native CI
+- Provider parser distinguishes network/timeout/HTTP/redirect/schema/size failures; these tests use controlled responses, not a claim of live provider availability
+- Original source tests and owner isolation remain covered; authentication lifetime and review scheduling are unchanged
+- The user approved replacing the unmatched live application with this reviewed version. Deployment is still unverified: authorized Vercel/Supabase target access and compatibility checks are required before applying migrations or claiming live acceptance
+- Independent live review confirmed three test words saved and survived reload while automatic definitions failed; this isolates the failure stage, not its server/provider root cause
+- Frontend retry timing is device-local and not atomic across tabs/devices; SQL is the authoritative per-user rate limiter
