@@ -15,8 +15,8 @@ jobs:
           --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
-      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:1
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci
+      NEON_AUTH_BASE_URL: http://127.0.0.1:1/auth
+      NEON_AUTH_COOKIE_SECRET: ci-only-secret-at-least-32-characters
       TEST_AUTH_SECRET: ci-secret
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +26,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261002000000_init.sql
+      - run: node scripts/migrate.mjs
       - run: npm run build
       - run: |
           npm start -- -p 3100 &

@@ -1,4 +1,4 @@
-// Runs against a running server (npm run build && npm start) and a Postgres with supabase/migrations applied.
+// Runs against a running server (npm run build && npm start) and a Postgres with db/migrations applied.
 // Env: BASE_URL (default http://localhost:3000), TEST_AUTH_SECRET (must match the server).
 import assert from "node:assert/strict";
 const base=process.env.BASE_URL||"http://localhost:3000",secret=process.env.TEST_AUTH_SECRET;

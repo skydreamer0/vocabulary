@@ -46,8 +46,7 @@ create table if not exists public.rate_limits (
 );
 
 -- The app reaches Postgres only through the server (DATABASE_URL) and filters by
--- the verified user id. Enabling RLS with no policies blocks the public
--- PostgREST/anon API from reading or writing these tables.
+-- the verified Neon Auth user id. RLS blocks non-owner database roles by default.
 alter table public.words enable row level security;
 alter table public.reviews enable row level security;
 alter table public.rate_limits enable row level security;

@@ -1,4 +1,4 @@
-import {getUser} from '@/lib/supabase/server';
+import {getUser} from '@/lib/auth/server';
 import {database} from '@/db';
 export class ApiError extends Error {constructor(public status:number,message:string){super(message)}}
 export function json(data:unknown,status=200){return Response.json(data,{status,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}})}

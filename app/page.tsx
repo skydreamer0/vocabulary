@@ -1,5 +1,5 @@
 import {redirect} from 'next/navigation';
-import {getUser} from '@/lib/supabase/server';
+import {getUser} from '@/lib/auth/server';
 import VocabularyApp from './vocabulary-app';
 export const dynamic='force-dynamic';
 export default async function Page(){
