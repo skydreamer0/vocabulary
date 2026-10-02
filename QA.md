@@ -1,7 +1,7 @@
 # QA record — 2026-10-02
 
 Deployment: https://english-vocabulary-puce.vercel.app
-Vercel deployment: dpl_EtzKVLVRtmTAGZmsR81FaKNwgFCv (production, READY).
+Vercel deployment: dpl_5bfCWFLDKeykazv5uP4W7sCoiGXd (production, READY; application commit 2980335).
 Neon project: dark-scene-55246572, Free plan, Singapore.
 Vercel Functions: sin1, confirmed by deployment inspection.
 
@@ -11,6 +11,8 @@ Vercel Functions: sin1, confirmed by deployment inspection.
 - 3 localization checks and 29 dictionary/queue/HTTP checks passed; actual Postgres temporary-table tests passed for successful-definition preservation, user isolation, renamed words and archived words.
 - Auth outage regression passed with an intentionally unreachable provider: HTTP 503 without a login redirect or cleared cookies; failed sign-out redirects to an explicit retry page.
 - Production build and TypeScript passed after integration. The real API suite passed again, including archived lookup rejection, with its generated fixtures cleaned up.
+- GitHub CI passed for application commit 2980335: https://github.com/skydreamer0/vocabulary/actions/runs/36987041722.
+- After redeployment, live auth smoke tests passed and the existing signed-in browser loaded the Traditional Chinese UI and cloud vocabulary. No error-level deployment logs were found in the verification window.
 
 - Next.js production build and TypeScript check passed after the Neon Auth migration.
 - Lint passed for changed auth components, auth routes, proxy, migration runner and auth smoke tests.
