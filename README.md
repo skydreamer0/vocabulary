@@ -88,8 +88,10 @@ A connected plugin alone does not prove access to a particular Vercel team or Su
 
 ```sh
 npm run typecheck
+npm run test:auth
 npm run test:db
 npm run build
+npm run test:smoke
 ```
 
 The local SQL suite uses PGlite to execute actual PostgreSQL migrations, roles, privileges, RLS and RPC transactions without a live account. For true simultaneous-connection tests, point `TEST_DATABASE_URL` at a **disposable local/CI PostgreSQL server only**. The test harness creates its own temporary database; never give it a production URL. CI runs PostgreSQL 17 and the native race tests.

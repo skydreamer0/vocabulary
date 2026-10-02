@@ -4,8 +4,11 @@
 
 - TypeScript: passed locally
 - Standard Next.js production build: passed locally
-- Database migrations/RLS/RPC contract: test suite runs through `npm run test:db`
-- Native PostgreSQL simultaneous-connection tests: run in GitHub CI against PostgreSQL 17; PGlite alone is not evidence of concurrency safety
+- PGlite PostgreSQL contract: 23 passed locally, 8 native-only cases skipped locally
+- Native PostgreSQL 17: all 31 database tests passed in GitHub CI, including the 8 concurrency cases
+- Authentication failure-path regressions: 9 passed locally
+- Actual Next.js HTTP smoke: setup-required redirect, fail-closed APIs and PWA asset headers passed
+- CI repeats native PostgreSQL, auth regression, type, build and runtime-smoke checks for each commit; PGlite alone is not evidence of concurrency safety
 
 The database suite bootstraps disposable Supabase-style roles and `auth.uid()` fixtures, then applies the actual application migrations. It tests PostgreSQL behavior, not a mock implementation of the application SQL.
 
