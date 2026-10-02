@@ -1,4 +1,6 @@
 import { createNeonAuth } from '@neondatabase/auth/next/server';
+import { NEON_AUTH_SESSION_COOKIE_NAME } from '@neondatabase/auth/server';
+import { cookies } from 'next/headers';
 
 let instance: ReturnType<typeof createNeonAuth> | undefined;
 
@@ -16,6 +18,8 @@ export type AppUser = { userId: string; email: string };
 
 /** Validate the session through Neon's signed session cache/server, never a user-id header. */
 export async function getUser(): Promise<AppUser | null> {
+  // Missing credentials are anonymous even when the provider is unreachable.
+  if (!(await cookies()).get(NEON_AUTH_SESSION_COOKIE_NAME)?.value) return null;
   const { data, error } = await neonAuth().getSession();
   if (error) throw new Error('Unable to verify sign-in session');
   return data?.user ? { userId: data.user.id, email: data.user.email } : null;

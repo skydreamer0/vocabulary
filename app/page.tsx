@@ -3,9 +3,8 @@ import {getUser} from '@/lib/auth/server';
 import VocabularyApp from './vocabulary-app';
 export const dynamic='force-dynamic';
 export default async function Page(){
-  const user=await getUser();if(!user)redirect('/login');
-  return <>
-    <form action="/auth/signout" method="post" className="fixed right-3 top-3 z-50 text-xs"><button type="submit" className="rounded-md border bg-background/80 px-2 py-1 text-muted-foreground backdrop-blur hover:text-foreground" title={user.email}>登出 Sign out</button></form>
-    <VocabularyApp userKey={user.userId}/>
-  </>
+  let user;
+  try{user=await getUser()}catch{return <main className="mx-auto max-w-sm p-6"><h1>登入服務暫時無法連線</h1><p>你的資料仍保留在資料庫，請稍後重新整理。</p></main>}
+  if(!user)redirect('/login');
+  return <VocabularyApp userKey={user.userId}/>;
 }

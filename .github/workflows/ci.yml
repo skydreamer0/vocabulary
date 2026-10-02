@@ -27,7 +27,11 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: node scripts/migrate.mjs
+      - run: npm run test:locale
+      - run: npm run test:enrichment
+      - run: npm run test:db
       - run: npm run build
+      - run: npm run test:auth-outage
       - run: |
           npm start -- -p 3100 &
           npx wait-on -t 60000 http://localhost:3100/login

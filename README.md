@@ -58,7 +58,7 @@ Neon's shared email sender supports initial testing. Configure dedicated SMTP be
 - Saved words/history use Postgres, never localStorage
 - Server routes validate Neon Auth sessions, filter every data operation by the verified user id, and reject cross-origin writes
 - App tables have RLS enabled with no public policies; the server uses its database owner connection
-- Only capture drafts are device-local; offline mutations are not queued
+- Capture drafts, selected tab and bounded dictionary retry timing are device-local; offline mutations are not queued
 - The service worker caches no private API data, only the offline screen and icons
 - 20,000-character capture, 80 KB TXT, 100 records/import; field sizes and request rates are bounded
 - History UI/export shows the newest 300 events; all review events remain in Postgres
@@ -72,3 +72,15 @@ Neon's shared email sender supports initial testing. Configure dedicated SMTP be
 `GET/POST/PATCH /api/words`, `GET/POST /api/reviews`, `POST /api/lookup`.
 
 Every data route requires a verified session. Client identity headers are never trusted in production. Dictionary fetches use one fixed HTTPS destination with timeout and response-size bounds; redirects are not followed.
+
+## Retained improvements
+
+The supported backend is Neon Auth + Postgres on Vercel. The previous Supabase implementation has been superseded; its useful UI and reliability improvements are retained here:
+
+- Taiwan Traditional Chinese throughout the UI, PWA and offline page; user-entered text and dictionary content are unchanged.
+- Pending dictionary lookups resume on reopening/reconnecting, run at most 40/minute per queue, and retry transient failures at most five times with increasing delays. Retry timing survives reloads; manual retry remains available.
+- Completed definitions are served from the database. Late failed lookups cannot overwrite successful results, renamed words or archived records.
+- Malformed/interrupted API responses are errors rather than success-shaped objects. Draft persistence failures and loading states are visible.
+- Authentication outages return an unavailable state without clearing the session or redirecting to login. Failed sign-out offers an explicit retry page.
+
+Run `npm run test:locale` and `npm run test:enrichment` for deterministic regressions, `npm run test:db` with a database URL for temporary-table SQL checks, and `npm run test:auth-outage` after a build for an isolated unavailable-provider check. The API suite removes only its own per-run fixtures when given the test database URL.

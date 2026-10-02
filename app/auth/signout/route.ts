@@ -6,7 +6,9 @@ export async function POST(request: Request) {
   if ((origin && origin !== new URL(request.url).origin) || request.headers.get('sec-fetch-site') === 'cross-site') {
     return Response.json({ error: 'Cross-origin request rejected' }, { status: 403 });
   }
-  const { error } = await neonAuth().signOut();
-  if (error) return Response.json({ error: '登出失敗，請再試一次。' }, { status: 502 });
-  return NextResponse.redirect(new URL('/login', request.url), 303);
+  let complete = false;
+  try { const { error } = await neonAuth().signOut(); complete = !error; } catch {}
+  const response = NextResponse.redirect(new URL(complete ? '/login' : '/auth/signout-error', request.url), 303);
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
 }

@@ -7,6 +7,11 @@ Vercel Functions: sin1, confirmed by deployment inspection.
 
 ## Verified
 
+- Reconciled the former Supabase branch into the Neon implementation: retained Taiwan localization, resumable/bounded dictionary enrichment, defensive response parsing and auth-outage handling.
+- 3 localization checks and 29 dictionary/queue/HTTP checks passed; actual Postgres temporary-table tests passed for successful-definition preservation, user isolation, renamed words and archived words.
+- Auth outage regression passed with an intentionally unreachable provider: HTTP 503 without a login redirect or cleared cookies; failed sign-out redirects to an explicit retry page.
+- Production build and TypeScript passed after integration. The real API suite passed again, including archived lookup rejection, with its generated fixtures cleaned up.
+
 - Next.js production build and TypeScript check passed after the Neon Auth migration.
 - Lint passed for changed auth components, auth routes, proxy, migration runner and auth smoke tests.
 - Applied the initial schema transactionally over the Neon direct connection; words, reviews and rate_limits have RLS enabled.

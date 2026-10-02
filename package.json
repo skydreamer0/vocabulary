@@ -13,6 +13,10 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test:api": "node tests/api.test.mjs",
     "test:auth": "node tests/auth.test.mjs",
+    "test:auth-outage": "node tests/auth-outage.test.mjs",
+    "test:locale": "node --test tests/localization.test.mjs",
+    "test:enrichment": "node --test tests/dictionary.test.mjs tests/enrichment-queue.test.mjs tests/http-response.test.mjs",
+    "test:db": "node --test tests/enrichment-db.test.mjs",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs"
   },
   "dependencies": {
