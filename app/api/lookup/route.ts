@@ -1,7 +1,7 @@
-import {database} from '@/db';import {auth,body,boundary,json,id,ApiError,rate} from '@/lib/server';import {mapWord,type Meaning} from '@/lib/types';
-export const dynamic='force-dynamic';
+import {auth,body,boundary,json,id,ApiError,dbError} from '@/lib/server';import {mapWord,type Meaning} from '@/lib/types';
+export const dynamic='force-dynamic';export const runtime='nodejs';
 export async function POST(request:Request){return boundary(async()=>{
- const user=await auth(request);await rate(user,'lookup',80);const d=await body(request),wordId=id(d.id),db=database();const word=await db.prepare('SELECT * FROM words WHERE id=? AND user_id=?').bind(wordId,user).first();if(!word)throw new ApiError(404,'找不到这笔词汇');
+ const {client,userId}=await auth(request),d=await body(request),wordId=id(d.id);const {data:word,error}=await client.from('vocab_words').select('*').eq('id',wordId).eq('user_id',userId).is('archived_at',null).maybeSingle();dbError(error);if(!word)throw new ApiError(404,'找不到這筆詞彙');const budget=await client.rpc('vocab_lookup_budget');dbError(budget.error);
  const term=String(word.term);let status='not_found',phonetic='',meanings:Meaning[]=[];
  if(/^[A-Za-z][A-Za-z' -]{0,79}$/.test(term)){
  try{const response=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term.toLowerCase())}`,{signal:AbortSignal.timeout(6000),redirect:'manual',headers:{Accept:'application/json'}});
@@ -11,6 +11,5 @@ export async function POST(request:Request){return boundary(async()=>{
  }catch(error){console.warn('Dictionary lookup failed',error instanceof Error?error.message:'unknown');status='unavailable'}
  }
  // A concurrent edit of the term must not receive the previous term's definition.
- const updated=await db.prepare('UPDATE words SET dictionary=?,phonetic=?,lookup_status=? WHERE id=? AND user_id=? AND term=? RETURNING *').bind(JSON.stringify(meanings),phonetic,status,wordId,user,term).first();
- if(!updated)throw new ApiError(409,'单词已变更，请重新查询');return json({word:mapWord(updated),status})
+ const {data:updated,error:updateError}=await client.rpc('vocab_enrich_word',{p_id:wordId,p_term:term,p_dictionary:meanings,p_phonetic:phonetic,p_status:status});dbError(updateError);return json({word:mapWord(updated),status})
 })}

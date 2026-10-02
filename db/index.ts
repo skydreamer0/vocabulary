@@ -1,5 +1,2 @@
-import { env } from 'cloudflare:workers';
-export function database(): D1Database {
-  if (!env.DB) throw new Error('D1 binding unavailable');
-  return env.DB;
-}
+// The active backend is Supabase/Postgres. Kept as a compatibility import boundary.
+export {createClient as database} from '@/lib/supabase/server';

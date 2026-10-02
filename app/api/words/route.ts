@@ -1,25 +1,18 @@
-import {database} from '@/db';
-import {auth,body,boundary,json,str,id,revision,ApiError,rate} from '@/lib/server';
-import {normal,mapWord} from '@/lib/types';
-export const dynamic='force-dynamic';
-export async function GET(request:Request){return boundary(async()=>{const user=await auth(request);await rate(user,'read',180);const db=database();const rows=await db.prepare('SELECT * FROM words WHERE user_id=? ORDER BY created_at DESC').bind(user).all();return json({words:rows.results.map(mapWord),serverNow:Date.now()})})}
+import {auth,body,boundary,json,str,id,revision,ApiError,dbError} from '@/lib/server';
+import {mapWord} from '@/lib/types';
+export const dynamic='force-dynamic';export const runtime='nodejs';
+export async function GET(request:Request){return boundary(async()=>{
+ const {client,userId}=await auth(request);let q=client.from('vocab_words').select('*').eq('user_id',userId).order('created_at',{ascending:false}).order('id',{ascending:true}).limit(100);
+ const cursor=new URL(request.url).searchParams.get('cursor');if(cursor){const parts=cursor.split('|'),time=Number(parts[0]);if(parts.length!==2||!Number.isSafeInteger(time)||time<0)throw new ApiError(400,'Invalid cursor');const wordId=id(parts[1]);q=q.or(`created_at.lt.${time},and(created_at.eq.${time},id.gt.${wordId})`)}
+ const {data,error}=await q;dbError(error);const rows=data||[];const last=rows.at(-1);return json({words:rows.map(mapWord),nextCursor:rows.length===100&&last?`${last.created_at}|${last.id}`:null,serverNow:Date.now()});
+})}
 export async function POST(request:Request){return boundary(async()=>{
- const user=await auth(request);await rate(user,'import',15);const data=await body(request);
- if(!Array.isArray(data.words)||data.words.length<1||data.words.length>100)throw new ApiError(400,'每批请添加 1–100 个词');
- const entries=data.words.map((w:Record<string,unknown>)=>{if(!w||typeof w!=='object')throw new ApiError(400,'Invalid word');return {term:str(w.term,100,true),context:str(w.context??'',1500),sense:normal(str(w.sense??'',100))}});
- if(entries.some((w:{term:string})=>!/[a-zA-Z]/.test(w.term)))throw new ApiError(400,'请输入英文单词或短语');
- const db=database();
- const now=Date.now();const statements=[];
- for(let i=0;i<entries.length;i+=10){const chunk=entries.slice(i,i+10);const values=chunk.map(()=>'(?,?,?,?,?,?,?,?,?)').join(',');const params=chunk.flatMap((w:{term:string;context:string;sense:string})=>[crypto.randomUUID(),user,w.term,normal(w.term),w.context,normal(w.context),w.sense,now,now]);statements.push(db.prepare(`INSERT INTO words (id,user_id,term,norm_term,context,norm_context,sense,created_at,due_at) VALUES ${values} ON CONFLICT(user_id,norm_term,norm_context,sense) DO NOTHING RETURNING *`).bind(...params))}
- const results=await db.batch(statements);
- const saved=results.flatMap(r=>r.results??[]).map(r=>mapWord(r as Record<string,unknown>));return json({words:saved,added:saved.length,duplicates:entries.length-saved.length},201)
+ const {client}=await auth(request),data=await body(request);if(!Array.isArray(data.words)||data.words.length<1||data.words.length>100)throw new ApiError(400,'每批請新增 1–100 個詞');
+ const entries=data.words.map((w:Record<string,unknown>)=>{if(!w||typeof w!=='object')throw new ApiError(400,'Invalid word');return {term:str(w.term,100,true),context:str(w.context??'',1500),sense:str(w.sense??'',100)}});
+ const {data:result,error}=await client.rpc('vocab_import_words',{p_words:entries});dbError(error);return json({...result,words:result.words.map(mapWord)},201);
 })}
 export async function PATCH(request:Request){return boundary(async()=>{
- const user=await auth(request);await rate(user,'edit',60);const d=await body(request),wordId=id(d.id),rev=revision(d.revision),db=database();
- const old=await db.prepare('SELECT * FROM words WHERE id=? AND user_id=?').bind(wordId,user).first();if(!old)throw new ApiError(404,'找不到这笔词汇');
- let r;if(typeof d.archived==='boolean'){r=await db.prepare('UPDATE words SET archived_at=?,revision=revision+1 WHERE id=? AND user_id=? AND revision=? RETURNING *').bind(d.archived?Date.now():null,wordId,user,rev).first()}
- else{const term=str(d.term,100,true),context=str(d.context,1500),sense=normal(str(d.sense,100)),definition=str(d.definition,2000);if(!/[a-zA-Z]/.test(term))throw new ApiError(400,'请输入英文单词或短语');
- const duplicate=await db.prepare('SELECT id FROM words WHERE user_id=? AND norm_term=? AND norm_context=? AND sense=? AND id<>?').bind(user,normal(term),normal(context),sense,wordId).first();if(duplicate)throw new ApiError(409,'同一个词、原句与词义已经存在');
- r=await db.prepare("UPDATE words SET term=?,norm_term=?,context=?,norm_context=?,sense=?,definition=?,dictionary=CASE WHEN norm_term<>? THEN '[]' ELSE dictionary END,phonetic=CASE WHEN norm_term<>? THEN '' ELSE phonetic END,lookup_status=CASE WHEN norm_term<>? THEN 'pending' ELSE lookup_status END,revision=revision+1 WHERE id=? AND user_id=? AND revision=? RETURNING *").bind(term,normal(term),context,normal(context),sense,definition,normal(term),normal(term),normal(term),wordId,user,rev).first();}
- if(!r)throw new ApiError(409,'这笔词汇已在其他分页更新，请重新载入');return json({word:mapWord(r)})
+ const {client}=await auth(request),d=await body(request);const args:Record<string,unknown>={p_id:id(d.id),p_revision:revision(d.revision)};
+ if(typeof d.archived==='boolean')args.p_archived=d.archived;else Object.assign(args,{p_term:str(d.term,100,true),p_context:str(d.context,1500),p_sense:str(d.sense,100),p_definition:str(d.definition,2000)});
+ const {data,error}=await client.rpc('vocab_edit_word',args);dbError(error);return json({word:mapWord(data)});
 })}

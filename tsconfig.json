@@ -28,8 +28,7 @@
       ]
     },
     "types": [
-      "node",
-      "@cloudflare/workers-types"
+      "node"
     ]
   },
   "include": [
@@ -42,6 +41,16 @@
   ],
   "exclude": [
     "node_modules",
-    "examples"
+    "examples",
+    "build",
+    "db/schema.ts",
+    "drizzle.config.ts",
+    "vite.config.ts",
+    "cloudflare-env.d.ts",
+    "lib/connector-context.ts",
+    "lib/connector-contract.mts",
+    "lib/connector-errors.mts",
+    "lib/connector-preview.d.ts",
+    "lib/connectors.ts"
   ]
 }

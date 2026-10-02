@@ -6,6 +6,23 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: vocabulary_ci_only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: vocabulary_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      TEST_DATABASE_URL: postgresql://postgres:vocabulary_ci_only@localhost:5432/vocabulary_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,4 +31,6 @@ jobs:
           cache: npm
       - run: npm run install:ci
       - run: npm run typecheck
-      - run: npm run test:api
+      - run: npm run test:db
+      - run: npm run build
+      - run: npm run test:smoke
